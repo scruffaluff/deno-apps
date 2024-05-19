@@ -1,0 +1,77 @@
+# GitHub Actions workflow file.
+#
+# For more information, visit
+# https://docs.github.com/actions/learn-github-actions.
+
+---
+name: build
+
+# Makes workflow run on any push or pull request.
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      debug:
+        default: false
+        description: Use Tmate session for debugging
+        type: boolean
+
+env:
+  NPM_CONFIG_CACHE: "${{ github.workspace }}/.cache/npm"
+
+jobs:
+  build:
+    name: Run code analyses and test suites
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu
+          - windows
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Cache packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            .cache
+            node_modules
+          key: >-
+            node-20_${{ runner.os }}_npm-${{ hashFiles('package-lock.json') }}
+      - if: ${{ runner.os != 'Windows' }}
+        name: Install Just for Unix
+        run: >-
+          curl -LSfs https://just.systems/install.sh | bash -s -- --to
+          /usr/local/bin
+      - if: ${{ runner.os == 'Windows' }}
+        name: Install Just for Windows
+        run: choco install --yes just
+      - name: Install Node interpreter
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+      # GitHub default shell for Windows is PowerShell Core and installing
+      # modules in a PowerShell session that is a subprocess of a PowerShell
+      # Core session causes failures related to not being able to find NuGet.
+      - if: ${{ runner.os != 'Windows' }}
+        name: Install development dependencies
+        run: just setup
+      - name: Check code formatting
+        run: just format
+      - name: Run code analyses
+        run: just lint
+      - name: Run test suites
+        run: just test
+      - name: Setup Tmate session if debug enabled
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch' &&
+          inputs.debug }}
+        timeout-minutes: 60
+        uses: mxschmitt/action-tmate@v3
