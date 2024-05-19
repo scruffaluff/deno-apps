@@ -272,26 +272,31 @@ install_app_linux() {
   icon_url="${2}/${3}.svg"
 
   if [ -n "${super}" ]; then
-    app_path="/usr/local/share/deno-apps/${name}/${name}.ts"
+    app_path="/usr/local/deno-apps/${name}/index.ts"
     desktop_path="/usr/local/share/applications/${3}.desktop"
-    icon_path="/usr/local/share/deno-apps/${name}/${name}.svg"
+    icon_path="/usr/local/deno-apps/${name}/icon.svg"
 
     download "${super}" "${app_url}" "${app_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
+
+    work_dir="/usr/local/deno-apps/${name}/runtime"
+    "${super}" mkdir -p -m 777 "${work_dir}"
   else
-    app_path="${HOME}/.local/share/deno-apps/${name}/${name}.ts"
+    app_path="${HOME}/.local/deno-apps/${name}/index.ts"
     desktop_path="${HOME}/.local/share/applications/${3}.desktop"
-    icon_path="${HOME}/.local/share/deno-apps/${name}/${name}.svg"
+    icon_path="${HOME}/.local/deno-apps/${name}/icon.svg"
+    work_dir="${HOME}/.local/deno-apps/${name}"
 
     download '' "${app_url}" "${app_path}" 755
     download '' "${icon_url}" "${icon_path}"
   fi
 
-  cat << EOF > "${desktop_path}"
+  cat << EOF | sudo tee "${desktop_path}" > /dev/null
 [Desktop Entry]
 Exec=${app_path}
 Icon=${icon_path}
 Name=$(capitalize "${name}")
+Path=${work_dir}
 Terminal=false
 Type=Application
 EOF
