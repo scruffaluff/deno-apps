@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 #
-# Install shell scripts for FreeBSD, MacOS, or Linux systems.
+# Install Deno apps for FreeBSD, MacOS, or Linux systems.
 
 # Exit immediately if a command exits with non-zero return code.
 #
@@ -17,51 +17,28 @@ set -eu
 #######################################
 usage() {
   cat 1>&2 << EOF
-Installer script for Shell Scripts.
+Installer script for Deno apps.
 
-Usage: install [OPTIONS] SCRIPT
+Usage: install [OPTIONS] APP
 
 Options:
       --debug               Show shell debug traces
-  -d, --dest <PATH>         Directory to install scripts
   -h, --help                Print help information
-  -l, --list                List all available scripts
-  -u, --user                Install scripts for current user
-  -v, --version <VERSION>   Version of scripts to install
+  -l, --list                List all available apps
+  -u, --user                Install apps for current user
+  -v, --version <VERSION>   Version of apps to install
 EOF
 }
 
 #######################################
-# Add Scripts to system path in user's shell profile.
-# Globals:
-#   HOME
-#   PATH
-#   SHELL
+# Capitalize app name.
 # Arguments:
-#   Parent directory of Scripts script.
+#   Application script name.
+# Outputs:
+#   Application desktop name.
 #######################################
-configure_shell() {
-  export_cmd="export PATH=\"${1}:\$PATH\""
-  shell_name="$(basename "${SHELL}")"
-
-  case "${shell_name}" in
-    bash)
-      profile="${HOME}/.bashrc"
-      ;;
-    zsh)
-      profile="${HOME}/.zshrc"
-      ;;
-    fish)
-      export_cmd="set -x PATH \"${1}\" \$PATH"
-      profile="${HOME}/.config/fish/config.fish"
-      ;;
-    *)
-      profile="${HOME}/.profile"
-      ;;
-  esac
-
-  printf '\n# Added by Shell Scripts installer.\n%s\n' "${export_cmd}" \
-    >> "${profile}"
+capitalize() {
+  echo "${1}" | sed 's/_/ /g' | sed 's/[^ ]*/\u&/g'
 }
 
 #######################################
@@ -70,8 +47,17 @@ configure_shell() {
 #   Super user command for installation.
 #   Remote source URL.
 #   Local destination path.
+#   Optional permissions for file.
 #######################################
 download() {
+  # Create parent directory if it does not exist.
+  folder="$(dirname "${3}")"
+  if [ ! -d "${folder}" ]; then
+    ${1:+"${1}"} mkdir -p "${folder}"
+  fi
+
+  # Download with Curl or Wget.
+  #
   # Flags:
   #   -O path: Save download to path.
   #   -q: Hide log output.
@@ -82,6 +68,11 @@ download() {
       "${2}"
   else
     ${1:+"${1}"} wget -q -O "${3}" "${2}"
+  fi
+
+  # Change file permissions if chmod parameter was passed.
+  if [ -n "${4:-}" ]; then
+    ${1:+"${1}"} chmod "${4}" "${3}"
   fi
 }
 
@@ -173,14 +164,14 @@ EOF
 }
 
 #######################################
-# Find all scripts inside GitHub repository.
+# Find all apps inside GitHub repository.
 # Arguments:
 #   Version
 # Returns:
-#   Array of script name stems.
+#   Array of app name stems.
 #######################################
-find_scripts() {
-  url="https://api.github.com/repos/scruffaluff/shell-scripts/git/trees/${1}?recursive=true"
+find_apps() {
+  url="https://api.github.com/repos/scruffaluff/deno-apps/git/trees/${1}?recursive=true"
 
   # Flags:
   #   -O path: Save download to path.
@@ -194,7 +185,7 @@ find_scripts() {
   fi
 
   jq_bin="$(find_jq)"
-  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith(".sh")) | ltrimstr("src/") | rtrimstr(".sh")'
+  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith(".ts")) | ltrimstr("src/") | rtrimstr(".ts")'
   echo "${response}" | "${jq_bin}" --exit-status --raw-output "${filter}"
 }
 
@@ -219,21 +210,17 @@ find_super() {
 }
 
 #######################################
-# Print log message to stdout if logging is enabled.
+# Install application.
 # Arguments:
 #   Super user command for installation
-#   Script URL prefix
-#   Destination path prefix
-#   Script name
+#   App URL prefix
+#   App name
 # Globals:
-#   SHELL_SCRIPTS_NOLOG
+#   DENO_APPS_NOLOG
 # Outputs:
 #   Log message to stdout.
 #######################################
-install_script() {
-  dst_file="${3}/${4}"
-  src_url="${2}/${4}.sh"
-
+install_app() {
   # Use super user elevation command for system installation if user did not
   # give the --user, does not own the file, and is not root.
   #
@@ -242,37 +229,78 @@ install_script() {
   # Flags:
   #   -w: Check if file exists and is writable.
   #   -z: Check if the string has zero length or is null.
-  if [ -z "${1}" ] && [ ! -w "${dst_file}" ]; then
+  if [ -z "${1}" ]; then
     super="$(find_super)"
   else
     super=''
   fi
 
-  log "Installing script ${4}..."
+  log "Installing app ${3}..."
 
-  # Do not quote the outer super parameter expansion. Shell will error due to be
-  # being unable to find the "" command.
-  ${super:+"${super}"} mkdir -p "${3}"
-  download "${super}" "${src_url}" "${dst_file}"
-  ${super:+"${super}"} chmod 755 "${dst_file}"
+  # Do not use long form --kernel-name flag for uname. It is not supported on
+  # MacOS.
+  os_type="$(uname -s)"
+  case "${os_type}" in
+    Darwin)
+      install_app_macos "${super}" "${2}" "${3}"
+      ;;
+    Linux)
+      install_app_linux "${super}" "${2}" "${3}"
+      ;;
+    *)
+      error "Operating system ${os_type} is not supported"
+      ;;
+  esac
 
-  # Add Scripts to shell profile if not in system path.
-  #
-  # Flags:
-  #   -e: Check if file exists.
-  #   -v: Only show file path of command.
-  if [ ! -e "$(command -v "${4}")" ]; then
-    configure_shell "${3}"
-    export PATH="${3}:${PATH}"
+  log "Installed $(capitalize "${3}")"
+}
+
+#######################################
+# Install application for Linux.
+# Arguments:
+#   Super user command for installation
+#   App URL prefix
+#   App name
+# Globals:
+#   DENO_APPS_NOLOG
+# Outputs:
+#   Log message to stdout.
+#######################################
+install_app_linux() {
+  super="${1}"
+  app_url="${2}/${3}.ts"
+  icon_url="${2}/${3}.svg"
+
+  if [ -n "${super}" ]; then
+    app_path="/usr/local/share/deno-apps/${name}/${name}.ts"
+    desktop_path="/usr/local/share/applications/${3}.desktop"
+    icon_path="/usr/local/share/deno-apps/${name}/${name}.svg"
+
+    download "${super}" "${app_url}" "${app_path}" 755
+    download "${super}" "${icon_url}" "${icon_path}"
+  else
+    app_path="${HOME}/.local/share/deno-apps/${name}/${name}.ts"
+    desktop_path="${HOME}/.local/share/applications/${3}.desktop"
+    icon_path="${HOME}/.local/share/deno-apps/${name}/${name}.svg"
+
+    download '' "${app_url}" "${app_path}" 755
+    download '' "${icon_url}" "${icon_path}"
   fi
 
-  log "Installed $("${4}" --version)."
+  cat << EOF > "${desktop_path}"
+[Desktop Entry]
+Exec=${app_path}
+Icon=${icon_path}
+Name=$(capitalize "${name}")
+Terminal=false
+Type=Application
+EOF
 }
 
 #######################################
 # Print log message to stdout if logging is enabled.
 # Globals:
-#   SHELL_SCRIPTS_NOLOG
+#   DENO_APPS_NOLOG
 # Outputs:
 #   Log message to stdout.
 #######################################
@@ -281,7 +309,7 @@ log() {
   #
   # Flags:
   #   -z: Check if string has zero length.
-  if [ -z "${SHELL_SCRIPTS_NOLOG:-}" ]; then
+  if [ -z "${DENO_APPS_NOLOG:-}" ]; then
     echo "$@"
   fi
 }
@@ -290,7 +318,7 @@ log() {
 # Script entrypoint.
 #######################################
 main() {
-  dst_dir='/usr/local/bin' names='' version='main'
+  names='' version='main'
 
   # Parse command line arguments.
   while [ "${#}" -gt 0 ]; do
@@ -299,20 +327,15 @@ main() {
         set -o xtrace
         shift 1
         ;;
-      -d | --dest)
-        dst_dir="${2}"
-        shift 2
-        ;;
       -h | --help)
         usage
         exit 0
         ;;
       -l | --list)
-        list_scripts='true'
+        list_apps='true'
         shift 1
         ;;
       -u | --user)
-        dst_dir="${HOME}/.local/bin"
         user_install='true'
         shift 1
         ;;
@@ -331,20 +354,19 @@ main() {
     esac
   done
 
-  src_prefix="https://raw.githubusercontent.com/scruffaluff/shell-scripts/${version}/src"
-  scripts="$(find_scripts "${version}")"
+  src_prefix="https://raw.githubusercontent.com/scruffaluff/deno-apps/${version}/src"
+  apps="$(find_apps "${version}")"
 
   # Flags:
   #   -n: Check if the string has nonzero length.
-  if [ -n "${list_scripts:-}" ]; then
-    echo "${scripts}"
+  if [ -n "${list_apps:-}" ]; then
+    echo "${apps}"
   else
     for name in ${names}; do
-      for script in ${scripts}; do
-        if [ "${script}" = "${name}" ]; then
+      for app in ${apps}; do
+        if [ "${app}" = "${name}" ]; then
           match_found='true'
-          install_script "${user_install:-}" "${src_prefix}" "${dst_dir}" \
-            "${script}"
+          install_app "${user_install:-}" "${src_prefix}" "${app}"
         fi
       done
     done
@@ -352,7 +374,7 @@ main() {
     # Flags:
     #   -z: Check if string has zero length.
     if [ -z "${match_found:-}" ]; then
-      error_usage "No script found for '${names}'."
+      error_usage "No app found for '${names}'."
     fi
   fi
 }

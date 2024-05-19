@@ -2,13 +2,13 @@
 #
 # For more information, visit https://git-scm.com/docs/gitignore.
 
-build/
 .cache/
 .DS_Store
 .local/
-node_modules/
-/site/
-/tmp/
 .vitepress/cache/
 .vitepress/dist/
+build/
+node_modules/
+site/
+tmp/
 x/
