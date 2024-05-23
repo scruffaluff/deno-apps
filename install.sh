@@ -38,7 +38,17 @@ EOF
 #   Application desktop name.
 #######################################
 capitalize() {
-  echo "${1}" | sed 's/_/ /g' | sed 's/[^ ]*/\u&/g'
+  case "$(uname -s)" in
+    Darwin)
+      # MacOS specific case is necessary since builtin sed does not support
+      # changing character case. AWK solution taken from
+      # https://stackoverflow.com/a/31972726.
+      echo "${1}" | sed 's/_/ /g' | awk '{for (i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1'
+      ;;
+    *)
+      echo "${1}" | sed 's/_/ /g' | sed 's/[^ ]*/\u&/g'
+      ;;
+  esac
 }
 
 #######################################
@@ -267,13 +277,11 @@ install_app() {
 #   Log message to stdout.
 #######################################
 install_app_linux() {
-  super="${1}"
-  app_url="${2}/${3}.ts"
-  icon_url="${2}/${3}.svg"
+  app_url="${2}/${3}.ts" icon_url="${2}/${3}.svg" name="${3}" super="${1}"
 
   if [ -n "${super}" ]; then
     app_path="/usr/local/deno-apps/${name}/index.ts"
-    desktop_path="/usr/local/share/applications/${3}.desktop"
+    manifest_path="/usr/local/share/applications/${3}.desktop"
     icon_path="/usr/local/deno-apps/${name}/icon.svg"
 
     download "${super}" "${app_url}" "${app_path}" 755
@@ -283,7 +291,7 @@ install_app_linux() {
     "${super}" mkdir -p -m 777 "${work_dir}"
   else
     app_path="${HOME}/.local/deno-apps/${name}/index.ts"
-    desktop_path="${HOME}/.local/share/applications/${3}.desktop"
+    manifest_path="${HOME}/.local/share/applications/${3}.desktop"
     icon_path="${HOME}/.local/deno-apps/${name}/icon.svg"
     work_dir="${HOME}/.local/deno-apps/${name}"
 
@@ -291,7 +299,7 @@ install_app_linux() {
     download '' "${icon_url}" "${icon_path}"
   fi
 
-  cat << EOF | sudo tee "${desktop_path}" > /dev/null
+  cat << EOF | sudo tee "${manifest_path}" > /dev/null
 [Desktop Entry]
 Exec=${app_path}
 Icon=${icon_path}
@@ -299,6 +307,78 @@ Name=$(capitalize "${name}")
 Path=${work_dir}
 Terminal=false
 Type=Application
+EOF
+}
+
+#######################################
+# Install application for Linux.
+# Arguments:
+#   Super user command for installation
+#   App URL prefix
+#   App name
+# Globals:
+#   DENO_APPS_NOLOG
+# Outputs:
+#   Log message to stdout.
+#######################################
+install_app_macos() {
+  app_url="${2}/${3}.ts" icon_url="${2}/${3}.svg" name="${3}" super="${1}"
+  identifier="com.scruffaluff.deno-app-$(echo "${name}" | sed 's/_/-/g')"
+  title=$(capitalize "${name}")
+
+  if [ -n "${super}" ]; then
+    app_path="/Applications/${title}.app/Contents/MacOS/index.ts"
+    manifest_path="/Applications/${title}.app/Contents/Info.plist"
+    icon_path="/Applications/${title}.app/Contents/Resources/icon.svg"
+
+    download "${super}" "${app_url}" "${app_path}" 755
+    download "${super}" "${icon_url}" "${icon_path}"
+
+    work_dir="/Applications/${title}.app/runtime"
+    "${super}" mkdir -p -m 777 "${work_dir}"
+  else
+    app_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
+    manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
+    icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.svg"
+    work_dir="${HOME}/Applications/${title}.app/runtime"
+
+    download '' "${app_url}" "${app_path}" 755
+    download '' "${icon_url}" "${icon_path}"
+  fi
+
+  cat << EOF | sudo tee "${manifest_path}" > /dev/null
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDisplayName</key>
+	<string>${title}</string>
+	<key>CFBundleExecutable</key>
+	<string>index.ts</string>
+	<key>CFBundleIdentifier</key>
+	<string>${identifier}</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>${name}</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.13</string>
+	<key>LSRequiresCarbon</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>
 EOF
 }
 
