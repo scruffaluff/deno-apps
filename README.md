@@ -31,6 +31,10 @@ For instructions on installing the desktop applications for your operating
 system, see the [Install](https://scruffaluff.github.io/deno-apps/install)
 section of the documentation.
 
+```
+curl -LSfs https://raw.githubusercontent.com/scruffaluff/deno-apps/main/install.sh | sh -s -- --user boop
+```
+
 ## Contributing
 
 For guidance on setting up a development environment and how to make a
@@ -39,9 +43,8 @@ contribution, see the
 
 ## License
 
-Deno Apps is distributed under a [MIT
-license](https://github.com/scruffaluff/deno-apps/blob/main/LICENSE.md) and uses
-the following Freepik icons from Flaticon.
+Deno Apps is distributed under a
+[MIT license](https://github.com/scruffaluff/deno-apps/blob/main/LICENSE.md) and
+uses the following Freepik icons from Flaticon.
 
 - https://www.flaticon.com/free-icons/dinosaur
-
