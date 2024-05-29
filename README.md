@@ -39,5 +39,9 @@ contribution, see the
 
 ## License
 
-Deno Apps is distributed under a
-[MIT license](https://github.com/scruffaluff/deno-apps/blob/main/LICENSE.md).
+Deno Apps is distributed under a [MIT
+license](https://github.com/scruffaluff/deno-apps/blob/main/LICENSE.md) and uses
+the following Freepik icons from Flaticon.
+
+- https://www.flaticon.com/free-icons/dinosaur
+

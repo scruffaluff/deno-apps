@@ -277,8 +277,9 @@ install_app() {
 #   Log message to stdout.
 #######################################
 install_app_linux() {
-  app_url="${2}/${3}.ts" main_url="${2}/main.sh" name="${3}" super="${1}"
-  icon_url='https://uxwing.com/wp-content/themes/uxwing/download/animals-and-birds/andesaurus-dinosaur-color-icon.png'
+  app_url="${2}/src/${3}.ts" icon_url="${2}/assets/icon.png"
+  main_url="${2}/src/main.sh" name="${3}" super="${1}"
+  title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
     app_path="/usr/local/deno-apps/${name}/index.ts"
@@ -302,7 +303,7 @@ install_app_linux() {
 [Desktop Entry]
 Exec=${main_path}
 Icon=${icon_path}
-Name=$(capitalize "${name}")
+Name=${title}
 Terminal=false
 Type=Application
 EOF
@@ -320,8 +321,8 @@ EOF
 #   Log message to stdout.
 #######################################
 install_app_macos() {
-  app_url="${2}/${3}.ts" main_url="${2}/main.sh" name="${3}" super="${1}"
-  icon_url='https://uxwing.com/wp-content/themes/uxwing/download/animals-and-birds/andesaurus-dinosaur-color-icon.png'
+  app_url="${2}/src/${3}.ts" icon_url="${2}/assets/icon.png"
+  main_url="${2}/src/main.sh" name="${3}" super="${1}"
   identifier="com.scruffaluff.deno-app-$(echo "${name}" | sed 's/_/-/g')"
   title=$(capitalize "${name}")
 
@@ -380,13 +381,6 @@ install_app_macos() {
 	<true/>
 </dict>
 </plist>
-EOF
-
-  cat << EOF | sudo tee "${main_path}" > /dev/null
-#!/usr/bin/env sh
-
-cd "$(dirname "$(realpath "${0}")")"
-./index.ts
 EOF
 }
 
@@ -447,7 +441,7 @@ main() {
     esac
   done
 
-  src_prefix="https://raw.githubusercontent.com/scruffaluff/deno-apps/${version}/src"
+  src_prefix="https://raw.githubusercontent.com/scruffaluff/deno-apps/${version}"
   apps="$(find_apps "${version}")"
 
   # Flags:
