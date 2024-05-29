@@ -11,7 +11,24 @@ const body = `
   </head>
   <body>
     <p class="m-8 text-red-500">Boop is tiny and small!</p>
+    <div class="m-8" id="app">
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="greet">{{ message }}</button>
+    </div>
     <script src="webui.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+const { createApp, ref } = Vue;
+createApp({
+  setup() {
+    function greet(event) {
+      message.value = "Clicked!";
+    }
+
+    const message = ref("Hello vue!");
+    return { greet, message };
+  }
+}).mount("#app");
+    </script>
   </body>
 </html>
 `;

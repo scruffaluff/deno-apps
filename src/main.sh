@@ -9,7 +9,7 @@
 #   -u: Throw an error when an unset variable is encountered.
 set -eu
 
-app="$(dirname "$(realpath "${0}")")/index.ts"
+app="$(dirname "$(realpath "${0}")")/${1:-index}.ts"
 mkdir -p "${HOME}/.local/deno-apps"
 cd "${HOME}/.local/deno-apps"
 PATH="/usr/local/bin:${PATH}" "${app}"
