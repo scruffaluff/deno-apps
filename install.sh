@@ -288,6 +288,7 @@ install_app_linux() {
     main_path="/usr/local/deno-apps/${name}/main.sh"
 
     download "${super}" "${app_url}" "${app_path}" 755
+    download "${super}" "${main_url}" "${main_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
   else
     app_path="${HOME}/.local/deno-apps/${name}/index.ts"
@@ -296,10 +297,11 @@ install_app_linux() {
     main_path="${HOME}/.local/deno-apps/${name}/main.sh"
 
     download '' "${app_url}" "${app_path}" 755
+    download '' "${main_url}" "${main_path}" 755
     download '' "${icon_url}" "${icon_path}"
   fi
 
-  cat << EOF | sudo tee "${manifest_path}" > /dev/null
+  cat << EOF | ${super:+"${super}"} tee "${manifest_path}" > /dev/null
 [Desktop Entry]
 Exec=${main_path}
 Icon=${icon_path}
@@ -310,7 +312,7 @@ EOF
 }
 
 #######################################
-# Install application for Linux.
+# Install application for MacOS.
 # Arguments:
 #   Super user command for installation
 #   App URL prefix
@@ -346,7 +348,7 @@ install_app_macos() {
     download '' "${icon_url}" "${icon_path}"
   fi
 
-  cat << EOF | sudo tee "${manifest_path}" > /dev/null
+  cat << EOF | ${super:+"${super}"} tee "${manifest_path}" > /dev/null
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
