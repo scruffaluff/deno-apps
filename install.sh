@@ -288,15 +288,11 @@ install_app_linux() {
 
     download "${super}" "${app_url}" "${app_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
-
-    work_dir="/usr/local/deno-apps/${name}/runtime"
-    "${super}" mkdir -p -m 777 "${work_dir}"
   else
     app_path="${HOME}/.local/deno-apps/${name}/index.ts"
     manifest_path="${HOME}/.local/share/applications/${3}.desktop"
     icon_path="${HOME}/.local/deno-apps/${name}/icon.png"
     main_path="${HOME}/.local/deno-apps/${name}/main.sh"
-    work_dir="${HOME}/.local/deno-apps/${name}"
 
     download '' "${app_url}" "${app_path}" 755
     download '' "${icon_url}" "${icon_path}"
@@ -307,7 +303,6 @@ install_app_linux() {
 Exec=${main_path}
 Icon=${icon_path}
 Name=$(capitalize "${name}")
-Path=${work_dir}
 Terminal=false
 Type=Application
 EOF
@@ -339,15 +334,11 @@ install_app_macos() {
     download "${super}" "${app_url}" "${app_path}" 755
     download "${super}" "${main_url}" "${main_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
-
-    work_dir="/Applications/${title}.app/runtime"
-    "${super}" mkdir -p -m 777 "${work_dir}"
   else
     app_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
     manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
     icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.png"
     main_path="${HOME}/Applications/${title}.app/Contents/MacOS/main.sh"
-    work_dir="${HOME}/Applications/${title}.app/runtime"
 
     download '' "${app_url}" "${app_path}" 755
     download '' "${main_url}" "${main_path}" 755
@@ -365,6 +356,8 @@ install_app_macos() {
 	<string>${title}</string>
 	<key>CFBundleExecutable</key>
 	<string>main.sh</string>
+  <key>CFBundleIconFile</key>
+  <string>icon</string>
 	<key>CFBundleIdentifier</key>
 	<string>${identifier}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
