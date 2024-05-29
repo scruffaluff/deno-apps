@@ -277,12 +277,14 @@ install_app() {
 #   Log message to stdout.
 #######################################
 install_app_linux() {
-  app_url="${2}/${3}.ts" icon_url="${2}/${3}.svg" name="${3}" super="${1}"
+  app_url="${2}/${3}.ts" main_url="${2}/main.sh" name="${3}" super="${1}"
+  icon_url='https://uxwing.com/wp-content/themes/uxwing/download/animals-and-birds/andesaurus-dinosaur-color-icon.png'
 
   if [ -n "${super}" ]; then
     app_path="/usr/local/deno-apps/${name}/index.ts"
     manifest_path="/usr/local/share/applications/${3}.desktop"
-    icon_path="/usr/local/deno-apps/${name}/icon.svg"
+    icon_path="/usr/local/deno-apps/${name}/icon.png"
+    main_path="/usr/local/deno-apps/${name}/main.sh"
 
     download "${super}" "${app_url}" "${app_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
@@ -292,7 +294,8 @@ install_app_linux() {
   else
     app_path="${HOME}/.local/deno-apps/${name}/index.ts"
     manifest_path="${HOME}/.local/share/applications/${3}.desktop"
-    icon_path="${HOME}/.local/deno-apps/${name}/icon.svg"
+    icon_path="${HOME}/.local/deno-apps/${name}/icon.png"
+    main_path="${HOME}/.local/deno-apps/${name}/main.sh"
     work_dir="${HOME}/.local/deno-apps/${name}"
 
     download '' "${app_url}" "${app_path}" 755
@@ -301,7 +304,7 @@ install_app_linux() {
 
   cat << EOF | sudo tee "${manifest_path}" > /dev/null
 [Desktop Entry]
-Exec=${app_path}
+Exec=${main_path}
 Icon=${icon_path}
 Name=$(capitalize "${name}")
 Path=${work_dir}
@@ -322,16 +325,19 @@ EOF
 #   Log message to stdout.
 #######################################
 install_app_macos() {
-  app_url="${2}/${3}.ts" icon_url="${2}/${3}.svg" name="${3}" super="${1}"
+  app_url="${2}/${3}.ts" main_url="${2}/main.sh" name="${3}" super="${1}"
+  icon_url='https://uxwing.com/wp-content/themes/uxwing/download/animals-and-birds/andesaurus-dinosaur-color-icon.png'
   identifier="com.scruffaluff.deno-app-$(echo "${name}" | sed 's/_/-/g')"
   title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
     app_path="/Applications/${title}.app/Contents/MacOS/index.ts"
     manifest_path="/Applications/${title}.app/Contents/Info.plist"
-    icon_path="/Applications/${title}.app/Contents/Resources/icon.svg"
+    icon_path="/Applications/${title}.app/Contents/Resources/icon.png"
+    main_path="/Applications/${title}.app/Contents/MacOS/main.sh"
 
     download "${super}" "${app_url}" "${app_path}" 755
+    download "${super}" "${main_url}" "${main_path}" 755
     download "${super}" "${icon_url}" "${icon_path}"
 
     work_dir="/Applications/${title}.app/runtime"
@@ -339,10 +345,12 @@ install_app_macos() {
   else
     app_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
     manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
-    icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.svg"
+    icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.png"
+    main_path="${HOME}/Applications/${title}.app/Contents/MacOS/main.sh"
     work_dir="${HOME}/Applications/${title}.app/runtime"
 
     download '' "${app_url}" "${app_path}" 755
+    download '' "${main_url}" "${main_path}" 755
     download '' "${icon_url}" "${icon_path}"
   fi
 
@@ -356,7 +364,7 @@ install_app_macos() {
 	<key>CFBundleDisplayName</key>
 	<string>${title}</string>
 	<key>CFBundleExecutable</key>
-	<string>index.ts</string>
+	<string>main.sh</string>
 	<key>CFBundleIdentifier</key>
 	<string>${identifier}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -379,6 +387,13 @@ install_app_macos() {
 	<true/>
 </dict>
 </plist>
+EOF
+
+  cat << EOF | sudo tee "${main_path}" > /dev/null
+#!/usr/bin/env sh
+
+cd "$(dirname "$(realpath "${0}")")"
+./index.ts
 EOF
 }
 
