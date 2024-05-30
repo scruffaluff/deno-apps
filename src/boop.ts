@@ -15,9 +15,9 @@ const body = `
       <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="greet">{{ message }}</button>
     </div>
     <script src="webui.js"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script>
-const { createApp, ref } = Vue;
+    <script type="module">
+import { createApp, ref } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+
 createApp({
   setup() {
     function greet(event) {
