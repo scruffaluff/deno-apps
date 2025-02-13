@@ -2,7 +2,7 @@
 
 import presetTailwind from "https://esm.sh/@twind/preset-tailwind@1.1.4";
 import * as twind from "https://esm.sh/@twind/core@1.1.3";
-import { WebUI } from "https://deno.land/x/webui@2.4.4/mod.ts";
+import { Webview } from "jsr:@webview/webview@0.9.0";
 
 const body = `
 <html>
@@ -34,8 +34,12 @@ createApp({
 `;
 
 twind.install({ presets: [presetTailwind(), {}] });
-const window = new WebUI();
+const webview = new Webview();
 const { html, css } = twind.extract(body);
-window.show(html.replace("</head>", `<style data-twind>${css}</style></head>`));
+const html_ = html.replace(
+  "</head>",
+  `<style data-twind>${css}</style></head>`
+);
+webview.navigate(`data:text/html,${encodeURIComponent(html_)}`);
 
-await WebUI.wait();
+webview.run();
