@@ -12,4 +12,4 @@ set -eu
 app="$(dirname "$(realpath "${0}")")/${1:-index}.ts"
 mkdir -p "${HOME}/.local/deno-apps"
 cd "${HOME}/.local/deno-apps"
-PATH="/usr/local/bin:${PATH}" "${app}"
+PATH="/usr/local/bin:${PATH}" exec "${app}"
