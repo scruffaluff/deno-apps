@@ -25,6 +25,7 @@
           setup() {
             function greet(event) {
               message.value = "Clicked!";
+              sendMessage("A click occurred.\n");
             }
 
             const message = vue.ref("Hello vue!");

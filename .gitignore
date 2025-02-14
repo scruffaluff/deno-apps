@@ -7,6 +7,7 @@
 .local/
 .vitepress/cache/
 .vitepress/dist/
+*.log
 build/
 node_modules/
 site/
