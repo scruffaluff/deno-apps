@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="Example mini application" name="description" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Boop</title>
+  </head>
+  <body>
+    <p class="m-8 text-red-500">Boop is tiny and small!</p>
+    <div class="m-8" id="app">
+      <button
+        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        @click="greet"
+      >
+        {{ message }}
+      </button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+    <script type="module">
+      import * as vue from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+
+      vue
+        .createApp({
+          setup() {
+            function greet(event) {
+              message.value = "Clicked!";
+            }
+
+            const message = vue.ref("Hello vue!");
+            return { greet, message };
+          },
+        })
+        .mount("#app");
+    </script>
+  </body>
+</html>

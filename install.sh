@@ -19,7 +19,7 @@ usage() {
   cat 1>&2 << EOF
 Installer script for Deno apps.
 
-Usage: install [OPTIONS] APP
+Usage: install [OPTIONS] [APP]
 
 Options:
       --debug               Show shell debug traces
@@ -195,7 +195,7 @@ find_apps() {
   fi
 
   jq_bin="$(find_jq)"
-  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith(".ts")) | ltrimstr("src/") | rtrimstr(".ts")'
+  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
   echo "${response}" | "${jq_bin}" --exit-status --raw-output "${filter}"
 }
 
@@ -277,33 +277,35 @@ install_app() {
 #   Log message to stdout.
 #######################################
 install_app_linux() {
-  app_url="${2}/src/${3}.ts" icon_url="${2}/assets/icon.png"
-  main_url="${2}/src/main.sh" name="${3}" super="${1}"
+  backend_url="${2}/src/${3}/index.ts"
+  frontend_url="${2}/src/${3}/index.html"
+  icon_url="${2}/assets/icon.png"
+  name="${3}" super="${1}"
   title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
-    app_path="/usr/local/deno-apps/${name}/index.ts"
+    backend_path="/usr/local/deno-apps/${name}/index.ts"
+    frontend_path="/usr/local/deno-apps/${name}/index.html"
     manifest_path="/usr/local/share/applications/${3}.desktop"
     icon_path="/usr/local/deno-apps/${name}/icon.png"
-    main_path="/usr/local/deno-apps/${name}/main.sh"
 
-    download "${super}" "${app_url}" "${app_path}" 755
-    download "${super}" "${main_url}" "${main_path}" 755
+    download "${super}" "${backend_url}" "${backend_path}" 755
+    download "${super}" "${frontend_url}" "${frontend_path}"
     download "${super}" "${icon_url}" "${icon_path}"
   else
-    app_path="${HOME}/.local/deno-apps/${name}/index.ts"
+    backend_path="${HOME}/.local/deno-apps/${name}/index.ts"
+    frontend_path="${HOME}/.local/deno-apps/${name}/index.html"
     manifest_path="${HOME}/.local/share/applications/${3}.desktop"
     icon_path="${HOME}/.local/deno-apps/${name}/icon.png"
-    main_path="${HOME}/.local/deno-apps/${name}/main.sh"
 
-    download '' "${app_url}" "${app_path}" 755
-    download '' "${main_url}" "${main_path}" 755
+    download '' "${backend_url}" "${backend_path}" 755
+    download '' "${frontend_url}" "${frontend_path}"
     download '' "${icon_url}" "${icon_path}"
   fi
 
   cat << EOF | ${super:+"${super}"} tee "${manifest_path}" > /dev/null
 [Desktop Entry]
-Exec=${main_path}
+Exec=${backend_path}
 Icon=${icon_path}
 Name=${title}
 Terminal=false
@@ -323,28 +325,30 @@ EOF
 #   Log message to stdout.
 #######################################
 install_app_macos() {
-  app_url="${2}/src/${3}.ts" icon_url="${2}/assets/icon.png"
-  main_url="${2}/src/main.sh" name="${3}" super="${1}"
+  backend_url="${2}/src/${3}/index.ts"
+  frontend_url="${2}/src/${3}/index.html"
+  icon_url="${2}/assets/icon.png"
+  name="${3}" super="${1}"
   identifier="com.scruffaluff.deno-app-$(echo "${name}" | sed 's/_/-/g')"
   title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
-    app_path="/Applications/${title}.app/Contents/MacOS/index.ts"
-    manifest_path="/Applications/${title}.app/Contents/Info.plist"
+    backend_path="/Applications/${title}.app/Contents/MacOS/index.ts"
+    frontend_path="/Applications/${title}.app/Contents/MacOS/index.html"
     icon_path="/Applications/${title}.app/Contents/Resources/icon.png"
-    main_path="/Applications/${title}.app/Contents/MacOS/main.sh"
+    manifest_path="/Applications/${title}.app/Contents/Info.plist"
 
-    download "${super}" "${app_url}" "${app_path}" 755
-    download "${super}" "${main_url}" "${main_path}" 755
+    download "${super}" "${backend_url}" "${backend_path}" 755
+    download "${super}" "${frontend_url}" "${frontend_path}"
     download "${super}" "${icon_url}" "${icon_path}"
   else
-    app_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
-    manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
+    backend_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
+    frontend_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.html"
     icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.png"
-    main_path="${HOME}/Applications/${title}.app/Contents/MacOS/main.sh"
+    manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
 
-    download '' "${app_url}" "${app_path}" 755
-    download '' "${main_url}" "${main_path}" 755
+    download '' "${backend_url}" "${backend_path}" 755
+    download '' "${frontend_url}" "${frontend_path}"
     download '' "${icon_url}" "${icon_path}"
   fi
 
@@ -358,7 +362,7 @@ install_app_macos() {
 	<key>CFBundleDisplayName</key>
 	<string>${title}</string>
 	<key>CFBundleExecutable</key>
-	<string>main.sh</string>
+	<string>index.ts</string>
   <key>CFBundleIconFile</key>
   <string>icon</string>
 	<key>CFBundleIdentifier</key>
