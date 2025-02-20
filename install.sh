@@ -52,6 +52,29 @@ capitalize() {
 }
 
 #######################################
+# Create application entrypoint script.
+# Arguments:
+#   Super user command for installation.
+#   Deno folder path.
+#   Entrypoint file path.
+#######################################
+create_entrypoint() {
+  super="${1}"
+  folder="${2}"
+  path="${3}"
+
+  cat << EOF | ${super:+"${super}"} tee "${path}" > /dev/null
+#!/usr/bin/env sh
+set -eu
+
+# Ensure Deno is in system path.
+export PATH="${folder}:\${PATH}"
+exec "\$(dirname "\${0}")/index.ts"
+EOF
+  ${super:+"${super}"} chmod +x "${path}"
+}
+
+#######################################
 # Download file to local path.
 # Arguments:
 #   Super user command for installation.
@@ -132,6 +155,57 @@ error_usage() {
 }
 
 #######################################
+# Find all apps inside GitHub repository.
+# Arguments:
+#   Version
+# Returns:
+#   Array of app name stems.
+#######################################
+find_apps() {
+  url="https://api.github.com/repos/scruffaluff/deno-apps/git/trees/${1}?recursive=true"
+
+  # Flags:
+  #   -O path: Save download to path.
+  #   -q: Hide log output.
+  #   -v: Only show file path of command.
+  #   -x: Check if file exists and execute permission is granted.
+  if [ -x "$(command -v curl)" ]; then
+    response="$(curl --fail --location --show-error --silent "${url}")"
+  else
+    response="$(wget -q -O - "${url}")"
+  fi
+
+  jq_bin="$(find_jq)"
+  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
+  echo "${response}" | "${jq_bin}" --exit-status --raw-output "${filter}"
+}
+
+#######################################
+# Find Deno executable folder and install Deno if not available.
+# Arguments:
+#   Super user command for installation.
+# Returns:
+#   Deno folder path.
+#######################################
+find_deno() {
+  super="${1}"
+
+  if [ -x "$(command -v deno)" ]; then
+    path="$(command -v deno)"
+  elif [ -x '/usr/local/bin/deno' ]; then
+    path='/usr/local/bin/deno'
+  elif [ -x "${HOME}/.local/bin/deno" ]; then
+    path="${HOME}/.local/bin/deno"
+  elif [ -x "${HOME}/.deno/bin/deno" ]; then
+    path="${HOME}/.deno/bin/deno"
+  else
+    path="$(install_deno "${super}" "${os}")"
+  fi
+
+  dirname "${path}"
+}
+
+#######################################
 # Find or download Jq JSON parser.
 # Outputs:
 #   Path to Jq binary.
@@ -174,32 +248,6 @@ EOF
 }
 
 #######################################
-# Find all apps inside GitHub repository.
-# Arguments:
-#   Version
-# Returns:
-#   Array of app name stems.
-#######################################
-find_apps() {
-  url="https://api.github.com/repos/scruffaluff/deno-apps/git/trees/${1}?recursive=true"
-
-  # Flags:
-  #   -O path: Save download to path.
-  #   -q: Hide log output.
-  #   -v: Only show file path of command.
-  #   -x: Check if file exists and execute permission is granted.
-  if [ -x "$(command -v curl)" ]; then
-    response="$(curl --fail --location --show-error --silent "${url}")"
-  else
-    response="$(wget -q -O - "${url}")"
-  fi
-
-  jq_bin="$(find_jq)"
-  filter='.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
-  echo "${response}" | "${jq_bin}" --exit-status --raw-output "${filter}"
-}
-
-#######################################
 # Find command to elevate as super user.
 #######################################
 find_super() {
@@ -238,7 +286,7 @@ install_app() {
   #
   # Flags:
   #   -w: Check if file exists and is writable.
-  #   -z: Check if the string has zero length or is null.
+  #   -z: Check if the string is empty.
   if [ -z "${1}" ]; then
     super="$(find_super)"
   else
@@ -249,8 +297,8 @@ install_app() {
 
   # Do not use long form --kernel-name flag for uname. It is not supported on
   # MacOS.
-  os_type="$(uname -s)"
-  case "${os_type}" in
+  os="$(uname -s)"
+  case "${os}" in
     Darwin)
       install_app_macos "${super}" "${2}" "${3}"
       ;;
@@ -258,7 +306,7 @@ install_app() {
       install_app_linux "${super}" "${2}" "${3}"
       ;;
     *)
-      error "Operating system ${os_type} is not supported"
+      error "Operating system ${os} is not supported"
       ;;
   esac
 
@@ -280,32 +328,33 @@ install_app_linux() {
   backend_url="${2}/src/${3}/index.ts"
   frontend_url="${2}/src/${3}/index.html"
   icon_url="${2}/assets/icon.png"
-  name="${3}" super="${1}"
+  name="${3}"
+  super="${1}"
   title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
     backend_path="/usr/local/deno-apps/${name}/index.ts"
+    entrypoint_path="/usr/local/deno-apps/${name}/index.sh"
     frontend_path="/usr/local/deno-apps/${name}/index.html"
     manifest_path="/usr/local/share/applications/${3}.desktop"
     icon_path="/usr/local/deno-apps/${name}/icon.png"
-
-    download "${super}" "${backend_url}" "${backend_path}" 755
-    download "${super}" "${frontend_url}" "${frontend_path}"
-    download "${super}" "${icon_url}" "${icon_path}"
   else
     backend_path="${HOME}/.local/deno-apps/${name}/index.ts"
+    entrypoint_path="${HOME}/.local/deno-apps/${name}/index.sh"
     frontend_path="${HOME}/.local/deno-apps/${name}/index.html"
     manifest_path="${HOME}/.local/share/applications/${3}.desktop"
     icon_path="${HOME}/.local/deno-apps/${name}/icon.png"
-
-    download '' "${backend_url}" "${backend_path}" 755
-    download '' "${frontend_url}" "${frontend_path}"
-    download '' "${icon_url}" "${icon_path}"
   fi
+
+  deno_folder="$(find_deno "${super}")"
+  download "${super}" "${backend_url}" "${backend_path}" 755
+  download "${super}" "${frontend_url}" "${frontend_path}"
+  download "${super}" "${icon_url}" "${icon_path}"
+  create_entrypoint "${super}" "${deno_folder}" "${entrypoint_path}"
 
   cat << EOF | ${super:+"${super}"} tee "${manifest_path}" > /dev/null
 [Desktop Entry]
-Exec=${backend_path}
+Exec=${entrypoint_path}
 Icon=${icon_path}
 Name=${title}
 Terminal=false
@@ -328,29 +377,30 @@ install_app_macos() {
   backend_url="${2}/src/${3}/index.ts"
   frontend_url="${2}/src/${3}/index.html"
   icon_url="${2}/assets/icon.png"
-  name="${3}" super="${1}"
+  name="${3}"
+  super="${1}"
   identifier="com.scruffaluff.deno-app-$(echo "${name}" | sed 's/_/-/g')"
   title=$(capitalize "${name}")
 
   if [ -n "${super}" ]; then
     backend_path="/Applications/${title}.app/Contents/MacOS/index.ts"
+    entrypoint_path="/Applications/${title}.app/Contents/MacOS/index.html"
     frontend_path="/Applications/${title}.app/Contents/MacOS/index.html"
     icon_path="/Applications/${title}.app/Contents/Resources/icon.png"
     manifest_path="/Applications/${title}.app/Contents/Info.plist"
-
-    download "${super}" "${backend_url}" "${backend_path}" 755
-    download "${super}" "${frontend_url}" "${frontend_path}"
-    download "${super}" "${icon_url}" "${icon_path}"
   else
     backend_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.ts"
+    entrypoint_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.sh"
     frontend_path="${HOME}/Applications/${title}.app/Contents/MacOS/index.html"
     icon_path="${HOME}/Applications/${title}.app/Contents/Resources/icon.png"
     manifest_path="${HOME}/Applications/${title}.app/Contents/Info.plist"
-
-    download '' "${backend_url}" "${backend_path}" 755
-    download '' "${frontend_url}" "${frontend_path}"
-    download '' "${icon_url}" "${icon_path}"
   fi
+
+  deno_folder="$(find_deno "${super}")"
+  download "${super}" "${backend_url}" "${backend_path}" 755
+  download "${super}" "${frontend_url}" "${frontend_path}"
+  download "${super}" "${icon_url}" "${icon_path}"
+  create_entrypoint "${super}" "${deno_folder}" "${entrypoint_path}"
 
   cat << EOF | ${super:+"${super}"} tee "${manifest_path}" > /dev/null
 <?xml version="1.0" encoding="UTF-8"?>
@@ -362,7 +412,7 @@ install_app_macos() {
 	<key>CFBundleDisplayName</key>
 	<string>${title}</string>
 	<key>CFBundleExecutable</key>
-	<string>index.ts</string>
+	<string>index.sh</string>
   <key>CFBundleIconFile</key>
   <string>icon</string>
 	<key>CFBundleIdentifier</key>
@@ -388,6 +438,49 @@ install_app_macos() {
 </dict>
 </plist>
 EOF
+}
+
+#######################################
+# Install Deno.
+# Arguments:
+#   Super user command for installation.
+# Returns:
+#   Deno executable path.
+#######################################
+install_deno() {
+  super="${1}"
+  tmp_dir="$(mktemp -d)"
+
+  download '' 'https://dl.deno.land/release-latest.txt' "${tmp_dir}/version.txt"
+  version="$(cat "${tmp_dir}/version.txt")"
+  case $(uname -sm) in
+    "Darwin x86_64")
+      target="x86_64-apple-darwin"
+      ;;
+    "Darwin arm64")
+      target="aarch64-apple-darwin"
+      ;;
+    "Linux aarch64")
+      target="aarch64-unknown-linux-gnu"
+      ;;
+    *)
+      target="x86_64-unknown-linux-gnu"
+      ;;
+  esac
+  uri="https://dl.deno.land/release/${version}/deno-${target}.zip"
+  download '' "${uri}" "${tmp_dir}/deno.zip"
+  unzip -d "${tmp_dir}" -o "${tmp_dir}/deno.zip"
+  chmod 755 "${tmp_dir}/deno"
+
+  if [ -n "${super}" ]; then
+    folder='/usr/local/bin'
+  else
+    folder="${HOME}/.deno/bin"
+  fi
+
+  ${super:+"${super}"} mkdir -p "${folder}"
+  ${super:+"${super}"} cp "${tmp_dir}/deno" "${folder}/deno"
+  echo "${folder}/deno"
 }
 
 #######################################

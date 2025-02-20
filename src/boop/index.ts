@@ -10,7 +10,9 @@ const html = await Deno.readTextFile(
 const webview = new Webview();
 webview.title = "Boop";
 webview.bind("sendMessage", async (message: string) => {
-  await Deno.writeTextFile("server.log", message, { append: true });
+  await Deno.writeTextFile(`${Deno.env.get("HOME")}/server.log`, message, {
+    append: true,
+  });
 });
 webview.navigate(`data:text/html,${encodeURIComponent(html)}`);
 webview.run();
