@@ -4,19 +4,34 @@
     <meta charset="utf-8" />
     <meta content="Example mini application" name="description" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@5"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"
+    ></script>
     <title>Boop</title>
   </head>
   <body>
-    <p class="m-8 text-red-500">Boop is tiny and small!</p>
-    <div class="m-8" id="app">
-      <button
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        @click="greet"
-      >
-        {{ message }}
-      </button>
+    <div id="app">
+      <div class="hero bg-base-200 min-h-screen">
+        <div class="hero-content text-center">
+          <div class="max-w-md">
+            <h1 class="text-5xl font-bold">Boop App</h1>
+            <p class="py-6">
+              Boop is the smallest of all Oodroos. She loves to bounce and
+              smile.
+            </p>
+            <button class="btn btn-primary" @click="greet">
+              {{ message }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
     <script type="module">
       import * as vue from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
@@ -24,11 +39,11 @@
         .createApp({
           setup() {
             function greet(event) {
-              message.value = "Clicked!";
-              sendMessage("A click occurred.\n");
+              message.value = "Boop kisses for you!";
+              sendMessage("The boop has been clicked.\n");
             }
 
-            const message = vue.ref("Hello vue!");
+            const message = vue.ref("Click for Boop love.");
             return { greet, message };
           },
         })
