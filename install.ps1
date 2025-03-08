@@ -67,7 +67,9 @@ Function FindJq() {
 # Find all apps inside GitHub repository.
 Function FindApps($Version) {
     # $Filter = '.tree[] | select(.type == \"blob\") | .path | select(startswith(\"src/\")) | select(endswith(\"index.ts\")) | ltrimstr(\"src/\") | rtrimstr(\"/index.ts\")'
-    $Filter = '.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
+    $Filter = @'
+.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")
+'@
     $Uri = "https://api.github.com/repos/scruffaluff/deno-apps/git/trees/$Version`?recursive=true"
     $Response = Invoke-WebRequest -UseBasicParsing -Uri "$Uri"
 
