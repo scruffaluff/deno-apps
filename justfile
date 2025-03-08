@@ -8,6 +8,12 @@ set windows-shell := ['powershell.exe', '-NoLogo', '-Command']
 list:
   just --list
 
+# Compile application into standalone executable.
+build app:
+  mkdir -p dist
+  deno compile --allow-all --include src/{{app}}/index.html \
+    --output dist/{{app}}s src/{{app}}/index.ts
+
 # Build documentation.
 docs:
   npx vitepress build .
