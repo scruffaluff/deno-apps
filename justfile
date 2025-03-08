@@ -12,7 +12,7 @@ list:
 build app:
   mkdir -p dist
   deno compile --allow-all --include src/{{app}}/index.html \
-    --output dist/{{app}}s src/{{app}}/index.ts
+    --output dist/{{app}} src/{{app}}/index.ts
 
 # Build documentation.
 docs:

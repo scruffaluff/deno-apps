@@ -8,6 +8,8 @@
 
 # Exit immediately if a PowerShell Cmdlet encounters an error.
 $ErrorActionPreference = 'Stop'
+# Exit immediately when an native executable encounters an error.
+$PSNativeCommandUseErrorActionPreference = $True
 
 # Show CLI help information.
 Function Usage() {
@@ -31,19 +33,18 @@ Function Capitalize($Name) {
 }
 
 # Downloads file to destination efficiently.
+#
+# Required as a separate function, since the default progress bar updates every
+# byte, making downloads slow. For more information, visit
+# https://stackoverflow.com/a/43477248.
 Function DownloadFile($SrcURL, $DstFile) {
-    $DstDir = Split-Path -Parent $Dest
-    New-Item -Force -ItemType Directory $DstDir | Out-Null
-
-    # The progress bar updates every byte, which makes downloads slow. See
-    # https://stackoverflow.com/a/43477248 for an explanation.
     $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -UseBasicParsing -OutFile "$DstFile" "$SrcURL"
+    Invoke-WebRequest -UseBasicParsing -OutFile $DstFile -Uri $SrcURL
 }
 
 # Print error message and exit script with usage error code.
 Function ErrorUsage($Message) {
-    Throw "Error: $Message"
+    Write-Error "Error: $Message"
     Write-Error "Run 'install --help' for usage"
     Exit 2
 }
@@ -65,12 +66,42 @@ Function FindJq() {
 
 # Find all apps inside GitHub repository.
 Function FindApps($Version) {
-    $Filter = '.tree[] | select(.type == \"blob\") | .path | select(startswith(\"src/\")) | select(endswith(\".ts\")) | ltrimstr(\"src/\") | rtrimstr(\".ts\")'
+    # $Filter = '.tree[] | select(.type == \"blob\") | .path | select(startswith(\"src/\")) | select(endswith(\"index.ts\")) | ltrimstr(\"src/\") | rtrimstr(\"/index.ts\")'
+    $Filter = '.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
     $Uri = "https://api.github.com/repos/scruffaluff/deno-apps/git/trees/$Version`?recursive=true"
     $Response = Invoke-WebRequest -UseBasicParsing -Uri "$Uri"
 
     $JqBin = FindJq
     Write-Output "$Response" | & $JqBin --raw-output "$Filter"
+}
+
+# Install application.
+Function InstallApp($Target, $SrcPrefix, $Name) {
+    $Title = Capitalize $Name
+
+    If ($Target -Eq 'User') {
+        $DestDir = "$Env:LocalAppData\Programs\DenoApps\$Name"
+        $MenuDir = 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DenoApps'
+    }
+    Else {
+        $DestDir = "C:\Program Files\DenoApps\$Name"
+        $MenuDir = 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DenoApps'
+    }
+    New-Item -Force -ItemType Directory -Path $DestDir | Out-Null
+    New-Item -Force -ItemType Directory -Path $MenuDir | Out-Null
+
+    Log "Installing app $Name..."
+    DownloadFile "$SrcPrefix/src/$Name/index.html" "$DestDir/index.html"
+    DownloadFile "$SrcPrefix/src/$Name/index.ts" "$DestDir/index.ts"
+    DownloadFile "$SrcPrefix/assets/icon.ico" "$DestDir/icon.ico"
+
+    $WshShell = New-Object -COMObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut("$MenuDir\$Title.lnk")
+    $Shortcut.Arguments = "run --allow-all $DestDir/index.ts"
+    $Shortcut.IconLocation = "$DestDir\icon.ico, 0"
+    $Shortcut.TargetPath = 'C:\Program Files\Deno\bin\deno.exe'
+    $Shortcut.Save()
+    Log "Installed $(Capitalize $Name)."
 }
 
 # Print log message to stdout if logging is enabled.
@@ -126,24 +157,6 @@ Function Main() {
         Write-Output $Apps
     }
     ElseIf ($Name) {
-        If ($Target -Eq 'User') {
-            $DestDir = "$Env:LocalAppData\Programs\DenoApps\$Name"
-        }
-        Else {
-            $DestDir = "C:\Program Files\DenoApps\$Name"
-        }
-        New-Item -Force -ItemType Directory -Path $DestDir | Out-Null
-
-        $Path = [Environment]::GetEnvironmentVariable('Path', "$Target")
-        If (-Not ($Path -Like "*$DestDir*")) {
-            $PrependedPath = "$DestDir" + ";$Path";
-
-            [System.Environment]::SetEnvironmentVariable(
-                'Path', "$PrependedPath", "$Target"
-            )
-            $Env:Path = $PrependedPath
-        }
-
         $Apps = FindApps "$Version"
         $MatchFound = $False
         $SrcPrefix = "https://raw.githubusercontent.com/scruffaluff/deno-apps/$Version"
@@ -151,10 +164,7 @@ Function Main() {
         ForEach ($App in $Apps) {
             If ($Name -And ("$App" -Eq "$Name")) {
                 $MatchFound = $True
-                Log "Installing app $Name..."
-
-                DownloadFile "$SrcPrefix/src/$App.ps1" "$DestDir/index.ts"
-                Log "Installed $(& $Name --version)."
+                InstallApp $Target $SrcPrefix $App
             }
         }
 
