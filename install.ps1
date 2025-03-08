@@ -66,10 +66,7 @@ Function FindJq() {
 
 # Find all apps inside GitHub repository.
 Function FindApps($Version) {
-    # $Filter = '.tree[] | select(.type == \"blob\") | .path | select(startswith(\"src/\")) | select(endswith(\"index.ts\")) | ltrimstr(\"src/\") | rtrimstr(\"/index.ts\")'
-    $Filter = @'
-.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")
-'@
+    $Filter = '.tree[] | select(.type == "blob") | .path | select(startswith("src/")) | select(endswith("index.ts")) | ltrimstr("src/") | rtrimstr("/index.ts")'
     $Uri = "https://api.github.com/repos/scruffaluff/deno-apps/git/trees/$Version`?recursive=true"
     $Response = Invoke-WebRequest -UseBasicParsing -Uri "$Uri"
 
@@ -83,7 +80,7 @@ Function InstallApp($Target, $SrcPrefix, $Name) {
 
     If ($Target -Eq 'User') {
         $DestDir = "$Env:LocalAppData\Programs\DenoApps\$Name"
-        $MenuDir = 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DenoApps'
+        $MenuDir = "$Env:AppData\Microsoft\Windows\Start Menu\Programs\DenoApps"
     }
     Else {
         $DestDir = "C:\Program Files\DenoApps\$Name"
@@ -92,16 +89,30 @@ Function InstallApp($Target, $SrcPrefix, $Name) {
     New-Item -Force -ItemType Directory -Path $DestDir | Out-Null
     New-Item -Force -ItemType Directory -Path $MenuDir | Out-Null
 
+
+    $Acl = Get-Acl $DestDir
+    $AccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        $Env:USER,
+        "FullControl",
+        "Allow"
+    )
+    $Acl.AddAccessRule($AccessRule)
+    Set-Acl $DestDir $Acl
+
     Log "Installing app $Name..."
     DownloadFile "$SrcPrefix/src/$Name/index.html" "$DestDir/index.html"
     DownloadFile "$SrcPrefix/src/$Name/index.ts" "$DestDir/index.ts"
     DownloadFile "$SrcPrefix/assets/icon.ico" "$DestDir/icon.ico"
 
+    # Based on guide at
+    # https://learn.microsoft.com/en-us/troubleshoot/windows-client/admin-development/create-desktop-shortcut-with-wsh.
     $WshShell = New-Object -COMObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut("$MenuDir\$Title.lnk")
-    $Shortcut.Arguments = "run --allow-all $DestDir/index.ts"
-    $Shortcut.IconLocation = "$DestDir\icon.ico, 0"
+    $Shortcut.Arguments = "run --allow-all index.ts"
+    $Shortcut.IconLocation = "$DestDir\icon.ico"
     $Shortcut.TargetPath = 'C:\Program Files\Deno\bin\deno.exe'
+    $Shortcut.WindowStyle = 7 # Minimize initial terminal flash.
+    $Shortcut.WorkingDirectory = $DestDir
     $Shortcut.Save()
     Log "Installed $(Capitalize $Name)."
 }

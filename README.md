@@ -35,6 +35,10 @@ section of the documentation.
 curl -LSfs https://raw.githubusercontent.com/scruffaluff/deno-apps/main/install.sh | sh -s -- --user boop
 ```
 
+```
+powershell { iex "& { $(iwr -useb https://raw.githubusercontent.com/scruffaluff/deno-apps/main/install.ps1) } boop" }
+```
+
 ## Contributing
 
 For guidance on setting up a development environment and how to make a
